@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VoxNote</title>
+<style>
+:root{
+  --bg:#F7F7F8; --surface:#FFFFFF; --ink:#1C1C1E; --ink-soft:#5B5B60;
+  --gray:#9A9AA0; --gray-light:#E8E8ED; --border:#EBEBF0;
+  --accent:#4A5EF0; --accent-soft:#EEF0FE; --danger:#FF3B30;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:#E9E9EC;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Hiragino Sans","Noto Sans JP",Inter,sans-serif;
+  color:var(--ink); display:flex; justify-content:center; padding:20px 0; min-height:100vh;
+}
+.app-root{
+  background:var(--bg); width:100%; max-width:460px; min-height:680px;
+  border-radius:28px; overflow:hidden; box-shadow:0 8px 40px rgba(0,0,0,0.12);
+  position:relative; display:flex; flex-direction:column;
+}
+.screen{display:flex; flex-direction:column; min-height:680px; position:relative;}
+.topbar{display:flex; align-items:center; justify-content:space-between; padding:18px 18px 8px; gap:8px;}
+.app-title{font-size:22px; font-weight:700; letter-spacing:-0.02em;}
+.app-sub{font-size:12.5px; color:var(--gray); margin-top:2px;}
+button{font-family:inherit;}
+.icon-btn{width:40px; height:40px; border-radius:20px; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; font-size:17px; background:transparent;}
+.icon-btn.surface{background:var(--surface); box-shadow:0 1px 2px rgba(0,0,0,0.06);}
+.icon-btn:active{transform:scale(0.92);}
+.small-btn{width:34px;height:34px;border-radius:17px;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;}
+.list-area{flex:1; padding:8px 16px 130px; overflow-y:auto;}
+.empty-state{display:flex; flex-direction:column; align-items:center; text-align:center; margin-top:80px; gap:8px; padding:0 30px;}
+.empty-icon{width:56px; height:56px; border-radius:50%; background:var(--accent-soft); color:var(--accent); display:flex; align-items:center; justify-content:center; margin-bottom:6px; font-size:24px;}
+.empty-title{font-size:15.5px; font-weight:600;}
+.empty-desc{font-size:13px; color:var(--gray); line-height:1.6;}
+.empty-inline{font-size:13.5px; color:var(--gray); line-height:1.7; padding:6px 2px;}
+.rec-card{width:100%; display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:13px 14px; margin-bottom:10px; text-align:left; cursor:pointer;}
+.rec-card-icon{width:36px; height:36px; border-radius:11px; background:var(--accent-soft); color:var(--accent); display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:16px;}
+.rec-card-body{flex:1; min-width:0;}
+.rec-card-title{font-size:14.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.rec-card-meta{font-size:12px; color:var(--gray); margin-top:2px;}
+.rec-card-snippet{font-size:12px; color:var(--ink-soft); margin-top:4px; line-height:1.5;}
+.rec-card-star{display:flex; align-items:center; gap:3px; font-size:12px; color:var(--accent); font-weight:600; flex-shrink:0;}
+.hl{background:var(--accent-soft); color:var(--accent); border-radius:3px; padding:0 1px;}
+.record-dock{position:absolute; left:0; right:0; bottom:0; padding:14px 0 22px; display:flex; flex-direction:column; align-items:center; gap:8px; background:linear-gradient(to top, var(--bg) 60%, transparent);}
+.record-fab{width:66px; height:66px; border-radius:50%; background:var(--surface); border:1px solid var(--border); box-shadow:0 6px 20px rgba(0,0,0,0.12); display:flex; align-items:center; justify-content:center; cursor:pointer;}
+.record-fab:active{transform:scale(0.94);}
+.record-fab-dot{width:52px; height:52px; border-radius:50%; background:#FF3B30;}
+.record-dock-label{font-size:11.5px; color:var(--gray);}
+.recording-screen{background:var(--ink); color:#fff; align-items:center;}
+.recording-screen .topbar{width:100%;}
+.link-btn{background:none; border:none; color:rgba(255,255,255,0.75); font-size:14px; cursor:pointer;}
+.rec-indicator{display:flex; align-items:center; gap:6px; font-size:13px; color:rgba(255,255,255,0.85);}
+.dot{width:8px; height:8px; border-radius:50%; background:#FF3B30;}
+.dot.pulsing{animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.25;}}
+.timer{font-size:52px; font-weight:300; letter-spacing:0.02em; margin-top:34px; font-variant-numeric:tabular-nums;}
+.mic-error{display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; margin-top:100px; padding:0 30px; color:rgba(255,255,255,0.9); font-size:14px; line-height:1.7;}
+.waveform{display:flex; align-items:center; gap:3px; height:52px; margin:26px 0 8px;}
+.bar{width:3px; height:14px; border-radius:2px; background:var(--accent); opacity:0.35;}
+.bar.active{animation:wave 1.1s ease-in-out infinite; opacity:1;}
+@keyframes wave{0%,100%{height:10px;}50%{height:44px;}}
+.notice{font-size:12px; color:rgba(255,255,255,0.55); text-align:center; padding:0 30px; margin-top:6px; line-height:1.6;}
+.live-transcript{width:88%; max-width:360px; margin-top:18px; background:rgba(255,255,255,0.06); border-radius:14px; padding:12px 14px; max-height:110px; overflow-y:auto; display:none;}
+.live-transcript.show{display:block;}
+.live-transcript-label{font-size:10.5px; color:rgba(255,255,255,0.45); margin-bottom:4px; letter-spacing:0.03em;}
+.live-transcript-text{font-size:13px; line-height:1.7; color:rgba(255,255,255,0.9); white-space:pre-wrap;}
+.marker-row{width:88%; max-width:360px; margin-top:16px; min-height:26px;}
+.marker-empty{font-size:12px; color:rgba(255,255,255,0.4); text-align:center;}
+.marker-chip-list{display:flex; flex-wrap:wrap; gap:6px; justify-content:center;}
+.marker-chip{display:flex; align-items:center; gap:4px; background:rgba(255,255,255,0.08); border-radius:20px; padding:5px 10px; font-size:12px; color:rgba(255,255,255,0.9);}
+.rec-controls{position:absolute; bottom:34px; display:flex; align-items:center; gap:26px;}
+.star-btn{width:52px; height:52px; border-radius:50%; border:1px solid rgba(255,255,255,0.25); background:rgba(255,255,255,0.06); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:20px;}
+.star-btn.flash{background:var(--accent); border-color:var(--accent);}
+.stop-btn{width:68px; height:68px; border-radius:50%; background:#FF3B30; color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; border:none; font-size:20px;}
+.stop-btn:active, .star-btn:active{transform:scale(0.92);}
+.detail-header{padding:2px 20px 12px;}
+.title-row{display:flex; align-items:center; gap:6px; background:none; border:none; cursor:pointer; padding:0;}
+.detail-title{font-size:19px; font-weight:700; letter-spacing:-0.01em;}
+.detail-meta{font-size:12.5px; color:var(--gray); margin-top:3px;}
+.title-edit-row{display:flex; align-items:center; gap:6px;}
+.title-input{flex:1; font-size:17px; font-weight:600; border:1px solid var(--border); border-radius:10px; padding:7px 10px; outline:none;}
+.title-input:focus{border-color:var(--accent);}
+.tabbar{display:flex; gap:8px; padding:4px 20px 14px;}
+.pill{border:1px solid var(--border); background:var(--surface); border-radius:20px; padding:7px 14px; font-size:13px; font-weight:500; color:var(--ink-soft); cursor:pointer;}
+.pill.active{background:var(--ink); color:#fff; border-color:var(--ink);}
+.tab-content{flex:1; padding:0 20px 30px; overflow-y:auto;}
+.player-card{display:flex; align-items:center; gap:14px; background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:16px; margin-bottom:22px;}
+.play-btn{width:48px; height:48px; border-radius:50%; background:var(--ink); border:none; color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; font-size:17px;}
+.seek{width:100%; accent-color:var(--accent); cursor:pointer;}
+.time-row{display:flex; justify-content:space-between; font-size:11px; color:var(--gray); margin-top:2px; font-variant-numeric:tabular-nums;}
+.section-label{font-size:12px; font-weight:700; color:var(--gray); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:10px;}
+.marker-list{display:flex; flex-direction:column; gap:8px;}
+.marker-list-item{display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:11px 14px; cursor:pointer; font-size:13.5px; font-weight:600; text-align:left; width:100%;}
+.marker-list-hint{margin-left:auto; font-size:11.5px; color:var(--gray); font-weight:400;}
+.transcript-text{white-space:pre-wrap; font-size:14.5px; line-height:2; color:var(--ink-soft); background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px;}
+.ai-empty{display:flex; flex-direction:column; align-items:center; text-align:center; gap:10px; padding:20px 8px;}
+.ai-empty-text{font-size:14px; color:var(--ink-soft); line-height:1.7; max-width:300px;}
+.ai-empty-note{font-size:11.5px; color:var(--gray); line-height:1.6; max-width:300px;}
+.ai-error{font-size:12.5px; color:var(--danger); margin-top:2px;}
+.key-box{width:100%; max-width:300px; display:flex; flex-direction:column; gap:6px; margin:6px 0;}
+.key-box input{border:1px solid var(--border); border-radius:10px; padding:9px 11px; font-size:13px; outline:none;}
+.key-box input:focus{border-color:var(--accent);}
+.key-hint{font-size:11px; color:var(--gray); line-height:1.6;}
+.primary-btn{display:flex; align-items:center; gap:7px; background:var(--accent); color:#fff; border:none; border-radius:14px; padding:12px 20px; font-size:14px; font-weight:600; cursor:pointer; margin-top:6px;}
+.primary-btn:disabled{opacity:0.6; cursor:default;}
+.secondary-btn{display:flex; align-items:center; justify-content:center; gap:6px; background:var(--surface); border:1px solid var(--border); color:var(--ink); border-radius:12px; padding:10px 16px; font-size:13px; font-weight:600; cursor:pointer;}
+.danger-btn{background:var(--danger); color:#fff; border:none; border-radius:12px; padding:10px 16px; font-size:13px; font-weight:600; cursor:pointer;}
+.ai-results{display:flex; flex-direction:column; gap:14px;}
+.ai-block{background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:14px 16px;}
+.ai-block-title{display:flex; align-items:center; gap:7px; font-size:13px; font-weight:700; color:var(--accent); margin-bottom:8px;}
+.ai-block-body{font-size:13.5px; color:var(--ink-soft); line-height:1.8;}
+.ai-block-body ul{margin:0; padding-left:18px;}
+.ai-block-body li{margin-bottom:4px;}
+.ai-block-body p{margin:0;}
+.muted{color:var(--gray);}
+.search-box{flex:1; display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:9px 12px;}
+.search-box input{border:none; outline:none; background:none; font-size:14px; flex:1; color:var(--ink);}
+.modal-backdrop{position:absolute; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:flex-end; justify-content:center; z-index:20;}
+.modal-card{background:var(--surface); border-radius:20px 20px 0 0; padding:22px 20px 26px; width:100%; max-width:460px;}
+.modal-title{font-size:16px; font-weight:700; margin-bottom:10px;}
+.modal-desc{font-size:13px; color:var(--gray); line-height:1.7; margin-bottom:18px;}
+.modal-actions{display:flex; gap:10px;}
+.modal-actions button{flex:1;}
+.privacy-list{margin:0 0 18px; padding-left:18px; font-size:13px; color:var(--ink-soft); line-height:1.8; display:flex; flex-direction:column; gap:8px;}
+</style>
+</head>
+<body>
+<div id="app-root" class="app-root"></div>
+
+<script>
+/* ---------------- utils ---------------- */
+function formatTime(sec){
+  if(!isFinite(sec)||sec<0) sec=0;
+  const m=Math.floor(sec/60), s=Math.floor(sec%60);
+  return m+":"+String(s).padStart(2,"0");
+}
+function formatDate(ts){
+  const d=new Date(ts), now=new Date();
+  const sameYear = d.getFullYear()===now.getFullYear();
+  return d.toLocaleString("ja-JP", sameYear
+    ? {month:"long",day:"numeric",hour:"2-digit",minute:"2-digit"}
+    : {year:"numeric",month:"long",day:"numeric"});
+}
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function esc(s){ return (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+/* ---------------- IndexedDB ---------------- */
+const DB_NAME="mimilog_db", STORE="recordings";
+function openDB(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open(DB_NAME,1);
+    req.onupgradeneeded=e=>{ const db=e.target.result; if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE,{keyPath:"id"}); };
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error);
+  });
+}
+async function dbGetAll(){
+  const db=await openDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(STORE,"readonly");
+    const req=tx.objectStore(STORE).getAll();
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error);
+  });
+}
+async function dbPut(rec){
+  const db=await openDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(STORE,"readwrite");
+    tx.objectStore(STORE).put(rec);
+    tx.oncomplete=()=>resolve();
+    tx.onerror=()=>reject(tx.error);
+  });
+}
+async function dbDelete(id){
+  const db=await openDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(STORE,"readwrite");
+    tx.objectStore(STORE).delete(id);
+    tx.oncomplete=()=>resolve();
+    tx.onerror=()=>reject(tx.error);
+  });
+}
+
+/* ---------------- state ---------------- */
+let state = { screen:"home", recordings:[], activeId:null, tab:"overview", apiKey:"" };
+let rt = null; // runtime recording state
+const root = document.getElementById("app-root");
+
+async function init(){
+  state.recordings = (await dbGetAll()).sort((a,b)=>b.createdAt-a.createdAt);
+  render();
+}
+
+/* ---------------- event delegation ---------------- */
+root.addEventListener("click", async (e)=>{
+  const el = e.target.closest("[data-action]");
+  if(!el) return;
+  const action = el.dataset.action;
+  const id = el.dataset.id;
+
+  if(action==="go-search"){ state.screen="search"; render(); }
+  else if(action==="go-home"){ state.screen="home"; state.tab="overview"; render(); }
+  else if(action==="open-privacy"){ showModal(privacyModalHTML()); }
+  else if(action==="close-modal"){ closeModal(); }
+  else if(action==="start-record"){ startRecording(); }
+  else if(action==="cancel-record"){ cancelRecording(); }
+  else if(action==="stop-record"){ stopRecording(); }
+  else if(action==="add-marker"){ addMarker(); }
+  else if(action==="open-detail"){ state.activeId=id; state.screen="detail"; state.tab="overview"; render(); }
+  else if(action==="delete-confirm"){ showModal(deleteModalHTML(id)); }
+  else if(action==="delete-do"){ await dbDelete(id); state.recordings=state.recordings.filter(r=>r.id!==id); closeModal(); state.screen="home"; render(); }
+  else if(action==="set-tab"){ state.tab=el.dataset.tab; render(); }
+  else if(action==="edit-title"){ state.editingTitle=true; render(); }
+  else if(action==="save-title"){ await saveTitle(); }
+  else if(action==="cancel-title"){ state.editingTitle=false; render(); }
+  else if(action==="toggle-play"){ togglePlay(); }
+  else if(action==="seek-marker"){ seekTo(Number(el.dataset.time)); }
+  else if(action==="run-ai"){ runAI(); }
+  else if(action==="save-key"){ saveApiKey(); }
+});
+
+/* ---------------- modal ---------------- */
+function showModal(html){
+  let m=document.getElementById("modal-layer");
+  if(!m){ m=document.createElement("div"); m.id="modal-layer"; document.querySelector(".screen")?.appendChild(m); }
+  m.innerHTML=html;
+}
+function closeModal(){ const m=document.getElementById("modal-layer"); if(m) m.innerHTML=""; }
+function privacyModalHTML(){
+  return `<div class="modal-backdrop" data-action="close-modal">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <div class="modal-title">データの取り扱いについて</div>
+      <ul class="privacy-list">
+        <li>録音データ・文字起こし・AI要約は、この端末のブラウザ内（IndexedDB）に保存されます。外部サーバーには自動送信されません。</li>
+        <li>文字起こしは、ブラウザの音声認識機能（Chrome推奨）を使ってこの端末上で行われます。</li>
+        <li>「AIで整理する」を使うときだけ、文字起こしのテキストがGoogleのGemini API（あなた自身のAPIキー経由）に送信されます。音声データ自体は送信されません。</li>
+        <li>入力したAPIキーは保存されず、ページを再読み込みすると消えます。</li>
+        <li>録音はいつでも削除できます。</li>
+      </ul>
+      <button class="primary-btn" style="width:100%;justify-content:center;" data-action="close-modal">閉じる</button>
+    </div>
+  </div>`;
+}
+function deleteModalHTML(id){
+  return `<div class="modal-backdrop" data-action="close-modal">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <div class="modal-title">この録音を削除しますか？</div>
+      <div class="modal-desc">音声・文字起こし・AI要約がすべて削除されます。この操作は取り消せません。</div>
+      <div class="modal-actions">
+        <button class="secondary-btn" data-action="close-modal">キャンセル</button>
+        <button class="danger-btn" data-action="delete-do" data-id="${id}">削除する</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ---------------- recording logic ---------------- */
+async function startRecording(){
+  state.screen="recording";
+  rt = { elapsed:0, isRecording:false, markers:[], liveTranscript:"", finalTranscript:"", micError:null, speechSupported:true };
+  render();
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    rt.stream = stream;
+    const mr = new MediaRecorder(stream);
+    rt.chunks = [];
+    mr.ondataavailable = e=>{ if(e.data && e.data.size>0) rt.chunks.push(e.data); };
+    mr.start();
+    rt.mediaRecorder = mr;
+    rt.startTime = Date.now();
+    rt.isRecording = true;
+    rt.timer = setInterval(()=>{
+      rt.elapsed = Math.floor((Date.now()-rt.startTime)/1000);
+      const t=document.getElementById("timer"); if(t) t.textContent=formatTime(rt.elapsed);
+    },250);
+
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(SR){
+      const rec = new SR();
+      rec.lang="ja-JP"; rec.continuous=true; rec.interimResults=true;
+      rec.onresult = (e)=>{
+        let interim="";
+        for(let i=e.resultIndex;i<e.results.length;i++){
+          const t=e.results[i][0].transcript;
+          if(e.results[i].isFinal) rt.finalTranscript += t+"\n"; else interim+=t;
+        }
+        rt.liveTranscript = rt.finalTranscript + interim;
+        updateLiveTranscriptUI();
+      };
+      rec.onerror = ()=>{};
+      rec.onend = ()=>{ if(rt && rt.isRecording){ try{ rec.start(); }catch(e){} } };
+      rt.recognition = rec;
+      try{ rec.start(); }catch(e){}
+    } else {
+      rt.speechSupported=false;
+    }
+    render();
+  }catch(err){
+    rt.micError = "マイクにアクセスできませんでした。ブラウザのアドレスバー付近のマイクアイコン、またはOSのプライバシー設定でこのページ／ブラウザのマイク使用を許可してください。";
+    render();
+  }
+}
+function updateLiveTranscriptUI(){
+  const box=document.getElementById("live-box"), txt=document.getElementById("live-text");
+  if(!box||!txt) return;
+  if(rt.liveTranscript){ box.classList.add("show"); txt.textContent = rt.liveTranscript; }
+}
+function addMarker(){
+  if(!rt || !rt.isRecording) return;
+  rt.markers.push({ id:uid(), time: rt.elapsed });
+  const wrap = document.getElementById("marker-row");
+  if(wrap){
+    wrap.innerHTML = rt.markers.length===0 ? `<div class="marker-empty">重要な場面で ⭐ をタップして記録できます</div>`
+      : `<div class="marker-chip-list">${rt.markers.map(m=>`<span class="marker-chip">⭐ ${formatTime(m.time)}</span>`).join("")}</div>`;
+  }
+  const starBtn=document.getElementById("star-btn");
+  if(starBtn){ starBtn.classList.add("flash"); setTimeout(()=>starBtn.classList.remove("flash"),300); }
+}
+function stopRecording(){
+  clearInterval(rt.timer);
+  rt.isRecording=false;
+  if(rt.recognition){ try{ rt.recognition.onend=null; rt.recognition.stop(); }catch(e){} }
+  const mr = rt.mediaRecorder;
+  if(!mr){ state.screen="home"; render(); return; }
+  mr.onstop = async ()=>{
+    const blob = new Blob(rt.chunks, {type: mr.mimeType || "audio/webm"});
+    const rec = {
+      id: uid(), title: "録音 "+formatDate(Date.now()), createdAt: Date.now(),
+      duration: rt.elapsed, audioBlob: blob, transcript: rt.finalTranscript.trim(),
+      markers: rt.markers, ai: null, aiError: null,
+    };
+    await dbPut(rec);
+    state.recordings.unshift(rec);
+    state.activeId = rec.id;
+    state.screen = "detail";
+    state.tab = "overview";
+    rt.stream.getTracks().forEach(t=>t.stop());
+    rt=null;
+    render();
+  };
+  try{ mr.stop(); }catch(e){ state.screen="home"; render(); }
+}
+function cancelRecording(){
+  if(rt){
+    clearInterval(rt.timer);
+    rt.isRecording=false;
+    if(rt.recognition){ try{ rt.recognition.onend=null; rt.recognition.stop(); }catch(e){} }
+    if(rt.mediaRecorder){ try{ rt.mediaRecorder.stop(); }catch(e){} }
+    if(rt.stream){ rt.stream.getTracks().forEach(t=>t.stop()); }
+  }
+  rt=null;
+  state.screen="home";
+  render();
+}
+
+/* ---------------- detail helpers ---------------- */
+function getActive(){ return state.recordings.find(r=>r.id===state.activeId) || null; }
+async function saveTitle(){
+  const input = document.getElementById("title-input");
+  const rec = getActive();
+  if(rec && input){
+    const val = input.value.trim();
+    if(val) rec.title = val;
+    await dbPut(rec);
+  }
+  state.editingTitle=false;
+  render();
+}
+let currentAudio = null, currentAudioUrl = null;
+function togglePlay(){
+  const rec = getActive(); if(!rec) return;
+  const audioEl = document.getElementById("audio-el");
+  if(!audioEl) return;
+  if(audioEl.paused){ audioEl.play(); document.getElementById("play-icon").textContent="⏸"; }
+  else { audioEl.pause(); document.getElementById("play-icon").textContent="▶"; }
+}
+function seekTo(t){
+  const audioEl = document.getElementById("audio-el");
+  if(audioEl){ audioEl.currentTime = t; audioEl.play(); document.getElementById("play-icon").textContent="⏸"; state.tab="overview"; }
+}
+function saveApiKey(){
+  const input = document.getElementById("api-key-input");
+  if(input) state.apiKey = input.value.trim();
+  render();
+}
+async function runAI(){
+  const rec = getActive(); if(!rec || !rec.transcript) return;
+  if(!state.apiKey){ document.getElementById("key-error")?.remove(); return; }
+  state.aiLoading = true;
+  rec.aiError = null;
+  render();
+  try{
+    const prompt = `以下は音声の文字起こしです。内容を整理してください。
+
+文字起こし:
+${rec.transcript.slice(0,6000)}
+
+次のJSON形式で、日本語で出力してください。JSON以外の文章（前置き・説明・\`\`\`などのマークダウン）は絶対に含めないでください。
+
+{
+"summary": "内容を3〜5文程度で要約したもの",
+"keyPoints": ["重要なポイントを箇条書きで3〜6個。文字列の配列"],
+"todos": ["話の中から自分がやるべきことを箇条書きで抽出。なければ空配列"],
+"deadlines": ["日付や期限に関する記述（例:◯月◯日まで、来週までなど）を箇条書きで抽出。なければ空配列"],
+"simpleExplain": "内容を中学生にもわかるやさしい言葉で2〜4文程度に言い換えたもの"
+}`;
+    const model = "gemini-2.5-flash";
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(state.apiKey)}`,{
+      method:"POST",
+      headers:{ "content-type":"application/json" },
+      body: JSON.stringify({
+        contents: [{ role:"user", parts:[{ text: prompt }] }],
+        generationConfig: { responseMimeType: "application/json" }
+      })
+    });
+    const data = await res.json();
+    if(data.error){ throw new Error(data.error.message || "APIエラー"); }
+    const text = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts
+      ? data.candidates[0].content.parts.map(p=>p.text||"").join("\n") : "");
+    const clean = text.replace(/```json|```/g,"").trim();
+    rec.ai = JSON.parse(clean);
+    await dbPut(rec);
+  }catch(err){
+    rec.aiError = "AI整理に失敗しました（APIキーやネットワークをご確認ください）: " + err.message;
+  }finally{
+    state.aiLoading=false;
+    render();
+  }
+}
+
+/* ---------------- render ---------------- */
+function render(){
+  if(state.screen==="home") root.innerHTML = homeHTML();
+  else if(state.screen==="recording") root.innerHTML = recordingHTML();
+  else if(state.screen==="detail") root.innerHTML = detailHTML();
+  else if(state.screen==="search") root.innerHTML = searchHTML();
+  if(state.screen==="detail"){
+    const rec=getActive();
+    if(rec){
+      if(currentAudioUrl) URL.revokeObjectURL(currentAudioUrl);
+      currentAudioUrl = URL.createObjectURL(rec.audioBlob);
+      const audioEl = document.getElementById("audio-el");
+      if(audioEl){
+        audioEl.src = currentAudioUrl;
+        audioEl.addEventListener("timeupdate", ()=>{
+          document.getElementById("cur-time").textContent = formatTime(audioEl.currentTime);
+          document.getElementById("seek-input").value = audioEl.currentTime;
+        });
+        audioEl.addEventListener("loadedmetadata", ()=>{
+          const dur = isFinite(audioEl.duration) ? audioEl.duration : rec.duration;
+          document.getElementById("dur-time").textContent = formatTime(dur);
+          document.getElementById("seek-input").max = dur;
+        });
+        audioEl.addEventListener("ended", ()=>{ document.getElementById("play-icon").textContent="▶"; });
+      }
+      const seekInput = document.getElementById("seek-input");
+      if(seekInput){ seekInput.addEventListener("input", (e)=>{ if(audioEl) audioEl.currentTime = Number(e.target.value); }); }
+      const titleInput = document.getElementById("title-input");
+      if(titleInput){ titleInput.addEventListener("keydown", e=>{ if(e.key==="Enter") saveTitle(); }); }
+    }
+  }
+  if(state.screen==="search"){
+    const input=document.getElementById("search-input");
+    if(input){ input.addEventListener("input", e=>{ state.query = e.target.value; render(); setTimeout(()=>{ const i=document.getElementById("search-input"); if(i){ i.focus(); i.selectionStart=i.selectionEnd=i.value.length; } },0); }); }
+  }
+}
+
+function homeHTML(){
+  const list = state.recordings.length===0
+    ? `<div class="empty-state">
+         <div class="empty-icon">🎙️</div>
+         <div class="empty-title">まだ録音がありません</div>
+         <div class="empty-desc">下のボタンをタップして、最初の録音を始めましょう。</div>
+       </div>`
+    : state.recordings.map(r=>`
+        <button class="rec-card" data-action="open-detail" data-id="${r.id}">
+          <div class="rec-card-icon">🎙️</div>
+          <div class="rec-card-body">
+            <div class="rec-card-title">${esc(r.title)}</div>
+            <div class="rec-card-meta">${formatDate(r.createdAt)} ・ ${formatTime(r.duration)}</div>
+          </div>
+          ${r.markers && r.markers.length>0 ? `<div class="rec-card-star">⭐ ${r.markers.length}</div>` : ""}
+        </button>`).join("");
+  return `
+  <div class="screen">
+    <div class="topbar">
+      <div><div class="app-title">VoxNote</div><div class="app-sub">聞いたことを、あとで整理。</div></div>
+      <div style="display:flex;gap:8px;">
+        <button class="icon-btn surface" data-action="go-search">🔍</button>
+        <button class="icon-btn surface" data-action="open-privacy">ⓘ</button>
+      </div>
+    </div>
+    <div class="list-area">${list}</div>
+    <div class="record-dock">
+      <button class="record-fab" data-action="start-record"><span class="record-fab-dot"></span></button>
+      <div class="record-dock-label">タップして録音を開始</div>
+    </div>
+  </div>`;
+}
+
+function recordingHTML(){
+  if(rt && rt.micError){
+    return `
+    <div class="screen recording-screen">
+      <div class="topbar">
+        <button class="link-btn" data-action="cancel-record">キャンセル</button>
+        <div class="rec-indicator"><span class="dot"></span> 録音中</div>
+        <div style="width:64px;"></div>
+      </div>
+      <div class="mic-error">⚠️<div>${esc(rt.micError)}</div></div>
+    </div>`;
+  }
+  const isRec = rt ? rt.isRecording : false;
+  const markers = rt ? rt.markers : [];
+  const speechOk = rt ? rt.speechSupported : true;
+  return `
+  <div class="screen recording-screen">
+    <div class="topbar">
+      <button class="link-btn" data-action="cancel-record">キャンセル</button>
+      <div class="rec-indicator"><span class="dot ${isRec?'pulsing':''}"></span> 録音中</div>
+      <div style="width:64px;"></div>
+    </div>
+    <div class="timer" id="timer">0:00</div>
+    <div class="waveform">${Array.from({length:28}).map((_,i)=>`<span class="bar ${isRec?'active':''}" style="animation-delay:${(i%7)*0.09}s"></span>`).join("")}</div>
+    ${!speechOk ? `<div class="notice">この端末・ブラウザは音声のリアルタイム文字起こしに対応していません（録音自体は可能です）。Chromeでのご利用をおすすめします。</div>` : ""}
+    <div class="live-transcript" id="live-box">
+      <div class="live-transcript-label">文字起こし（自動・確定前）</div>
+      <div class="live-transcript-text" id="live-text"></div>
+    </div>
+    <div class="marker-row" id="marker-row">
+      ${markers.length===0 ? `<div class="marker-empty">重要な場面で ⭐ をタップして記録できます</div>`
+        : `<div class="marker-chip-list">${markers.map(m=>`<span class="marker-chip">⭐ ${formatTime(m.time)}</span>`).join("")}</div>`}
+    </div>
+    <div class="rec-controls">
+      <button class="star-btn" id="star-btn" data-action="add-marker">⭐</button>
+      <button class="stop-btn" data-action="stop-record">⏹</button>
+      <div style="width:52px;"></div>
+    </div>
+  </div>`;
+}
+
+function detailHTML(){
+  const rec = getActive();
+  if(!rec) return homeHTML();
+  const tab = state.tab || "overview";
+  return `
+  <div class="screen">
+    <div class="topbar">
+      <button class="icon-btn" data-action="go-home">←</button>
+      <div style="flex:1;"></div>
+      <button class="icon-btn" data-action="delete-confirm" data-id="${rec.id}">🗑</button>
+    </div>
+    <div class="detail-header">
+      ${state.editingTitle ? `
+        <div class="title-edit-row">
+          <input class="title-input" id="title-input" value="${esc(rec.title)}" autofocus>
+          <button class="small-btn" style="background:var(--accent);color:#fff;" data-action="save-title">✓</button>
+          <button class="small-btn" style="background:var(--gray-light);" data-action="cancel-title">✕</button>
+        </div>` : `
+        <button class="title-row" data-action="edit-title">
+          <span class="detail-title">${esc(rec.title)}</span>
+          <span style="font-size:12px;color:var(--gray);">✎</span>
+        </button>`}
+      <div class="detail-meta">${formatDate(rec.createdAt)} ・ ${formatTime(rec.duration)}</div>
+    </div>
+    <div class="tabbar">
+      <button class="pill ${tab==='overview'?'active':''}" data-action="set-tab" data-tab="overview">再生</button>
+      <button class="pill ${tab==='transcript'?'active':''}" data-action="set-tab" data-tab="transcript">文字起こし</button>
+      <button class="pill ${tab==='ai'?'active':''}" data-action="set-tab" data-tab="ai">AI要約</button>
+    </div>
+    <div class="tab-content">
+      ${tab==="overview" ? overviewTabHTML(rec) : tab==="transcript" ? transcriptTabHTML(rec) : aiTabHTML(rec)}
+    </div>
+  </div>`;
+}
+
+function overviewTabHTML(rec){
+  const markers = rec.markers && rec.markers.length ? rec.markers.map(m=>`
+      <button class="marker-list-item" data-action="seek-marker" data-time="${m.time}">
+        ⭐ <span>${formatTime(m.time)}</span><span class="marker-list-hint">タップして再生</span>
+      </button>`).join("") : `<div class="empty-inline">録音中に記録した重要ポイントはここに表示されます。</div>`;
+  return `
+    <audio id="audio-el"></audio>
+    <div class="player-card">
+      <button class="play-btn" data-action="toggle-play"><span id="play-icon">▶</span></button>
+      <div style="flex:1;">
+        <input type="range" class="seek" id="seek-input" min="0" max="${rec.duration||0}" value="0">
+        <div class="time-row"><span id="cur-time">0:00</span><span id="dur-time">${formatTime(rec.duration)}</span></div>
+      </div>
+    </div>
+    <div class="section-label">重要ポイント</div>
+    <div class="marker-list">${markers}</div>`;
+}
+function transcriptTabHTML(rec){
+  return rec.transcript
+    ? `<div class="transcript-text">${esc(rec.transcript)}</div>`
+    : `<div class="empty-inline">この録音には文字起こしがありません。録音時にブラウザが音声認識に対応していなかった可能性があります。</div>`;
+}
+function aiTabHTML(rec){
+  if(!rec.transcript) return `<div class="empty-inline">文字起こしがないため、AIで整理できません。</div>`;
+  if(!state.apiKey){
+    return `
+    <div class="ai-empty">
+      🔑
+      <div class="ai-empty-text">AIで整理するには、あなた自身のGoogle（Gemini）APIキーを入力してください。</div>
+      <div class="key-box">
+        <input type="password" id="api-key-input" placeholder="AIza...">
+        <div class="key-hint">aistudio.google.com で無料で取得できます（クレジットカード不要）。キーは保存されず、ページを再読み込みすると消えます。</div>
+      </div>
+      <button class="primary-btn" data-action="save-key">キーを設定する</button>
+    </div>`;
+  }
+  if(!rec.ai){
+    return `
+    <div class="ai-empty">
+      ✨
+      <div class="ai-empty-text">文字起こしをAIで整理して、要約・重要ポイント・やること・期限をまとめます。</div>
+      <div class="ai-empty-note">文字起こしのテキストがGoogleのGemini APIに送信されます（音声データ自体は送信されません）。</div>
+      ${rec.aiError ? `<div class="ai-error">${esc(rec.aiError)}</div>` : ""}
+      <button class="primary-btn" data-action="run-ai" ${state.aiLoading?'disabled':''}>${state.aiLoading?'整理しています…':'✨ AIで整理する'}</button>
+    </div>`;
+  }
+  const ai = rec.ai;
+  const list = arr => arr && arr.length ? `<ul>${arr.map(p=>`<li>${esc(p)}</li>`).join("")}</ul>` : `<p class="muted">なし</p>`;
+  return `
+    <div class="ai-results">
+      <div class="ai-block"><div class="ai-block-title">💬 要約</div><div class="ai-block-body"><p>${esc(ai.summary||"")}</p></div></div>
+      <div class="ai-block"><div class="ai-block-title">📋 重要ポイント</div><div class="ai-block-body">${list(ai.keyPoints)}</div></div>
+      <div class="ai-block"><div class="ai-block-title">✅ やること</div><div class="ai-block-body">${list(ai.todos)}</div></div>
+      <div class="ai-block"><div class="ai-block-title">📅 日付・期限</div><div class="ai-block-body">${list(ai.deadlines)}</div></div>
+      <div class="ai-block"><div class="ai-block-title">📖 かんたんに説明</div><div class="ai-block-body"><p>${esc(ai.simpleExplain||"")}</p></div></div>
+      <button class="secondary-btn" data-action="run-ai" ${state.aiLoading?'disabled':''}>${state.aiLoading?'整理しています…':'✨ もう一度整理する'}</button>
+    </div>`;
+}
+
+function searchHTML(){
+  const query = (state.query||"").trim();
+  const results = query ? state.recordings.filter(r=> r.title.includes(query) || (r.transcript||"").includes(query)) : [];
+  function snippet(text){
+    const idx = text.indexOf(query);
+    if(idx===-1) return esc(text);
+    const start=Math.max(0, idx-20), end=Math.min(text.length, idx+query.length+30);
+    const pre=(start>0?"…":"")+text.slice(start,idx);
+    const match=text.slice(idx, idx+query.length);
+    const post=text.slice(idx+query.length, end)+(end<text.length?"…":"");
+    return esc(pre)+`<mark class="hl">${esc(match)}</mark>`+esc(post);
+  }
+  const listHTML = !query
+    ? `<div class="empty-inline" style="margin-top:24px;">タイトルや文字起こしの内容から検索できます。</div>`
+    : results.length===0
+      ? `<div class="empty-inline" style="margin-top:24px;">「${esc(query)}」に一致する録音が見つかりませんでした。</div>`
+      : results.map(r=>{
+          const inTitle = r.title.includes(query);
+          const inTranscript = (r.transcript||"").includes(query);
+          return `<button class="rec-card" data-action="open-detail" data-id="${r.id}">
+            <div class="rec-card-icon">🎙️</div>
+            <div class="rec-card-body">
+              <div class="rec-card-title">${inTitle ? snippet(r.title) : esc(r.title)}</div>
+              <div class="rec-card-meta">${formatDate(r.createdAt)} ・ ${formatTime(r.duration)}</div>
+              ${!inTitle && inTranscript ? `<div class="rec-card-snippet">${snippet(r.transcript)}</div>` : ""}
+            </div>
+          </button>`;
+        }).join("");
+  return `
+  <div class="screen">
+    <div class="topbar">
+      <button class="icon-btn" data-action="go-home">←</button>
+      <div class="search-box">🔍<input id="search-input" placeholder="キーワードで検索（例：推薦入試）" value="${esc(state.query||"")}"></div>
+    </div>
+    <div class="list-area">${listHTML}</div>
+  </div>`;
+}
+
+init();
+</script>
+</body>
+</html>
